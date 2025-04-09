@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Kidney Segmentation</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+        }
+        .container {
+            background-color: #f9f9f9;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .results {
+            margin-top: 20px;
+            display: none;
+        }
+        .visualization {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .visualization img {
+            max-width: 100%;
+            border-radius: 5px;
+            box-shadow: 0 0 5px rgba(0,0,0,0.2);
+        }
+        .loading {
+            text-align: center;
+            display: none;
+        }
+        .spinner {
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #3498db;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 2s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Kidney Segmentation Tool</h1>
+       
+        <div class="form-group">
+            <label for="file">Upload NPZ File (kidney scan data):</label>
+            <input type="file" id="file" name="file" accept=".npz">
+        </div>
+       
+        <button onclick="uploadFile()">Process Scan</button>
+       
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Processing your scan. This may take a moment...</p>
+        </div>
+       
+        <div class="results" id="results">
+            <h2>Results</h2>
+            <p id="message"></p>
+            <a id="download" href="" download style="display: none">Download Segmentation Results</a>
+           
+            <div class="visualization" id="visualization"></div>
+        </div>
+    </div>
+
+    <script>
+        function uploadFile() {
+            const fileInput = document.getElementById('file');
+            const file = fileInput.files[0];
+           
+            if (!file) {
+                alert('Please select a file first.');
+                return;
+            }
+           
+            // Show loading spinner
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('results').style.display = 'none';
+           
+            const formData = new FormData();
+            formData.append('file', file);
+           
+            fetch('/predict', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                // Hide loading spinner
+                document.getElementById('loading').style.display = 'none';
+               
+                // Show results
+                document.getElementById('results').style.display = 'block';
+               
+                if (data.error) {
+                    document.getElementById('message').textContent = 'Error: ' + data.error;
+                    document.getElementById('download').style.display = 'none';
+                    document.getElementById('visualization').innerHTML = '';
+                } else {
+                    document.getElementById('message').textContent = data.message;
+                   
+                    // Set download link
+                    const downloadLink = document.getElementById('download');
+                    downloadLink.href = '/download/' + data.output_file;
+                    downloadLink.style.display = 'block';
+                   
+                    // Show visualizations
+                    const visContainer = document.getElementById('visualization');
+                    visContainer.innerHTML = '';
+                   
+                    data.visualizations.forEach((imgData, index) => {
+                        const img = document.createElement('img');
+                        img.src = 'data:image/png;base64,' + imgData;
+                        img.alt = 'Segmentation Result ' + index;
+                       
+                        visContainer.appendChild(img);
+                    });
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('results').style.display = 'block';
+                document.getElementById('message').textContent = 'An error occurred. Please try again.';
+            });
+        }
+    </script>
+</body>
+</html>
